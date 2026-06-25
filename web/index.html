@@ -169,7 +169,7 @@
       <section id="tab-users" class="tab-panel hidden">
         <div class="toolbar">
           <h2>Team members</h2>
-          <button id="add-user-btn" class="primary">+ Add user</button>
+          <button id="add-user-btn" class="primary">+ Add member</button>
         </div>
         <div id="user-list"></div>
         <p class="muted note">Members hold their own copy of the vault in their browser. After you add or change users, send them the exported vault file (⬇ Export) so they can import the latest version.</p>
@@ -515,19 +515,18 @@
     for (const [p, label] of [['view', 'Can view'], ['create', 'Can create'], ['edit', 'Can edit'], ['delete', 'Can delete']]) {
       const cb = el('input', { type: 'checkbox', checked: p === 'view' }); permInputs[p] = cb; permGrid.append(el('label', {}, cb, label));
     }
-    const adminCb = el('input', { type: 'checkbox' });
     const body = el('div', {}, field('Username', '<input id="u-username" autocomplete="off" />'), field('Password (min 8 chars)', '<input id="u-password" type="text" autocomplete="off" />'));
-    body.append(el('label', { className: 'checkbox-row' }, adminCb, 'Make admin (full access)'), el('div', { className: 'field' }, permGrid));
-    openModal('Add user', body, async () => {
+    body.append(el('div', { className: 'field' }, el('label', { textContent: 'Permissions the admin grants' }), permGrid));
+    // Only the super admin exists; everyone added here is a member with granted permissions.
+    openModal('Add member', body, async () => {
       const username = $('#u-username').value.trim();
       const pw = $('#u-password').value;
       if (!username) throw new Error('Username is required');
       if (Object.keys(state.data.users).some((k) => k.toLowerCase() === username.toLowerCase())) throw new Error('Username already exists');
       if (pw.length < 8) throw new Error('Password must be at least 8 characters');
-      const isAdmin = adminCb.checked;
-      const perms = isAdmin ? { ...ALL_PERMS } : Object.fromEntries(Object.keys(permInputs).map((p) => [p, permInputs[p].checked]));
+      const perms = Object.fromEntries(Object.keys(permInputs).map((p) => [p, permInputs[p].checked]));
       const { salt, wrapped } = await wrapVK(state.vk, pw);
-      state.data.users[username] = { role: isAdmin ? 'admin' : 'member', perms };
+      state.data.users[username] = { role: 'member', perms };
       state.auth[username] = { salt, wrapped };
       await persist(); renderUsers();
     });
