@@ -283,40 +283,51 @@
   }
 
   /* ================= App state + shared sync ================= */
-  const state = { vk: null, vkKey: null, data: null, me: null };
+  // While unlocked: state.data has PLAINTEXT passwords for the UI; state.auth holds
+  // each user's key-wrapping crypto (salt + wrapped Vault Key). The "vault document"
+  // (below) is what's stored locally and mapped to Sheet columns by the function.
+  const state = { vk: null, vkKey: null, data: null, auth: null, me: null };
   const API = '/api/vault';
   let _syncEl = null;
   function setSync(text, ok) { if (_syncEl) { _syncEl.textContent = text; _syncEl.style.color = ok === false ? 'var(--danger)' : 'var(--muted)'; } }
 
-  function loadFile() {
+  function loadDoc() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    try { return JSON.parse(raw); } catch { return null; }
+    try { const d = JSON.parse(raw); return (d && Array.isArray(d.users)) ? d : null; } catch { return null; }
   }
-  function saveFile(file) {
-    const str = JSON.stringify(file);
-    localStorage.setItem(STORAGE_KEY, str);
-    remoteSave(str); // push the encrypted blob to the shared Sheet
-  }
-  // Pull the shared (encrypted) vault from the server. Returns the raw string or null.
+  function saveDoc(doc) { localStorage.setItem(STORAGE_KEY, JSON.stringify(doc)); remoteSave(doc); }
+
   async function remoteLoad() {
     try {
       const r = await fetch(API, { cache: 'no-store' });
       if (!r.ok) return null;
-      const { vault } = await r.json();
-      if (!vault) return null;
-      JSON.parse(vault); // sanity-check it's a real vault blob
-      return vault;
+      const d = await r.json();
+      return (d && Array.isArray(d.users)) ? d : null;
     } catch { return null; }
   }
-  async function remoteSave(str) {
+  async function remoteSave(doc) {
     setSync('syncing…');
     try {
-      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vault: str }) });
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
       setSync(r.ok ? '☁ synced' : 'sync failed', r.ok);
     } catch { setSync('offline (saved locally)', false); }
   }
-  async function persist() { const file = loadFile(); file.vault = await C.encryptJSON(state.vkKey, state.data); saveFile(file); }
+
+  // Rebuild the vault document from memory, encrypting each password with the Vault Key.
+  async function buildDoc() {
+    const entries = [];
+    for (const e of state.data.entries) {
+      const pwd = await C.aesEncrypt(state.vkKey, enc.encode(e.password));
+      entries.push({ id: e.id, folder: e.folder, title: e.title, username: e.username, url: e.url, notes: e.notes, pwd });
+    }
+    const users = Object.keys(state.data.users).map((u) => ({
+      username: u, role: state.data.users[u].role, perms: state.data.users[u].perms,
+      salt: state.auth[u].salt, wrapped: state.auth[u].wrapped,
+    }));
+    return { version: 2, users, entries, nextId: state.data.nextId };
+  }
+  async function persist() { saveDoc(await buildDoc()); }
 
   const $ = (s) => document.querySelector(s);
   const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); for (const k of kids) if (k != null) n.append(k); return n; };
@@ -327,8 +338,9 @@
     _syncEl = $('#sync-status');
     // Pull the shared vault first so every device/browser sees the same one.
     const remote = await remoteLoad();
-    if (remote) { localStorage.setItem(STORAGE_KEY, remote); setSync('☁ synced'); }
-    if (loadFile()) show('login-view'); else show('setup-view');
+    if (remote) { localStorage.setItem(STORAGE_KEY, JSON.stringify(remote)); setSync('☁ synced'); }
+    const doc = loadDoc();
+    if (doc && doc.users.length) show('login-view'); else show('setup-view');
   }
   function show(viewId) { document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden')); $('#' + viewId).classList.remove('hidden'); }
 
@@ -355,11 +367,11 @@
         const vk = C.randomBytes(32);
         const { salt, wrapped } = await wrapVK(vk, pw);
         const vkKey = await C.importVK(vk);
-        const data = { users: { [username]: { role: 'admin', perms: { ...ALL_PERMS } } }, entries: [], nextId: 1 };
-        const file = { v: 1, auth: { [username]: { salt, wrapped } }, vault: await C.encryptJSON(vkKey, data) };
-        saveFile(file);
-        state.vk = vk; state.vkKey = vkKey; state.data = data;
-        state.me = { username, ...data.users[username] };
+        state.vk = vk; state.vkKey = vkKey;
+        state.data = { users: { [username]: { role: 'admin', perms: { ...ALL_PERMS } } }, entries: [], nextId: 1 };
+        state.auth = { [username]: { salt, wrapped } };
+        state.me = { username, role: 'admin', perms: { ...ALL_PERMS } };
+        await persist();
       });
       enterApp();
     } catch (err) { $('#setup-error').textContent = err.message; }
@@ -372,26 +384,33 @@
     const username = $('#login-username').value.trim();
     const pw = $('#login-password').value;
     try {
-      const file = loadFile();
-      const name = file ? Object.keys(file.auth).find((k) => k.toLowerCase() === username.toLowerCase()) : null;
-      const authEntry = name ? file.auth[name] : null;
-      if (!authEntry) throw new Error('Invalid username or password');
+      const doc = loadDoc();
+      const userRec = doc ? doc.users.find((u) => u.username.toLowerCase() === username.toLowerCase()) : null;
+      if (!userRec) throw new Error('Invalid username or password');
       await withBusy(e.submitter || $('#login-form button[type=submit]'), 'Unlocking…', async () => {
         let vk;
-        try { vk = await unwrapVK(authEntry, pw); } catch { throw new Error('Invalid username or password'); }
+        try { vk = await unwrapVK({ salt: userRec.salt, wrapped: userRec.wrapped }, pw); }
+        catch { throw new Error('Invalid username or password'); }
         const vkKey = await C.importVK(vk);
-        const data = await C.decryptJSON(vkKey, file.vault);
-        const u = data.users[name];
-        if (!u) throw new Error('Account not present in vault');
-        state.vk = vk; state.vkKey = vkKey; state.data = data;
-        state.me = { username: name, ...u };
+        // Decrypt each entry's password into memory for the UI.
+        const entries = [];
+        for (const en of doc.entries) {
+          let password = '';
+          try { password = dec.decode(await C.aesDecrypt(vkKey, en.pwd)); } catch { password = ''; }
+          entries.push({ id: en.id, folder: en.folder, title: en.title, username: en.username, url: en.url, notes: en.notes, password });
+        }
+        state.vk = vk; state.vkKey = vkKey;
+        state.data = { users: {}, entries, nextId: doc.nextId || (entries.reduce((m, x) => Math.max(m, x.id), 0) + 1) };
+        state.auth = {};
+        for (const u of doc.users) { state.data.users[u.username] = { role: u.role, perms: u.perms }; state.auth[u.username] = { salt: u.salt, wrapped: u.wrapped }; }
+        state.me = { username: userRec.username, role: userRec.role, perms: userRec.perms };
       });
       enterApp();
     } catch (err) { $('#login-error').textContent = err.message; }
   });
 
   $('#lock-btn').addEventListener('click', lock);
-  function lock() { state.vk = null; state.vkKey = null; state.data = null; state.me = null; $('#login-password').value = ''; show('login-view'); }
+  function lock() { state.vk = null; state.vkKey = null; state.data = null; state.auth = null; state.me = null; $('#login-password').value = ''; show('login-view'); }
 
   function enterApp() {
     show('app-view');
@@ -508,8 +527,8 @@
       const isAdmin = adminCb.checked;
       const perms = isAdmin ? { ...ALL_PERMS } : Object.fromEntries(Object.keys(permInputs).map((p) => [p, permInputs[p].checked]));
       const { salt, wrapped } = await wrapVK(state.vk, pw);
-      const file = loadFile(); file.auth[username] = { salt, wrapped }; saveFile(file);
       state.data.users[username] = { role: isAdmin ? 'admin' : 'member', perms };
+      state.auth[username] = { salt, wrapped };
       await persist(); renderUsers();
     });
   });
@@ -528,7 +547,7 @@
   async function deleteUser(username) {
     if (!confirm('Delete user "' + username + '"?')) return;
     delete state.data.users[username];
-    const file = loadFile(); delete file.auth[username]; saveFile(file);
+    delete state.auth[username];
     await persist(); renderUsers();
   }
   async function resetUserPassword(username) {
@@ -536,8 +555,9 @@
     if (np == null) return;
     if (np.length < 8) { alert('Password must be at least 8 characters'); return; }
     const { salt, wrapped } = await wrapVK(state.vk, np);
-    const file = loadFile(); file.auth[username] = { salt, wrapped }; saveFile(file);
-    alert('Password for "' + username + '" was reset. Export the vault and share it so they can use the new password.');
+    state.auth[username] = { salt, wrapped };
+    await persist();
+    alert('Password for "' + username + '" was reset.');
   }
 
   /* ---- Change my password ---- */
@@ -547,10 +567,10 @@
       const cur = $('#cp-cur').value;
       const np = $('#cp-new').value;
       if (np.length < 8) throw new Error('New password must be at least 8 characters');
-      const file = loadFile();
-      try { await unwrapVK(file.auth[state.me.username], cur); } catch { throw new Error('Current password is incorrect'); }
+      try { await unwrapVK(state.auth[state.me.username], cur); } catch { throw new Error('Current password is incorrect'); }
       const { salt, wrapped } = await wrapVK(state.vk, np);
-      file.auth[state.me.username] = { salt, wrapped }; saveFile(file);
+      state.auth[state.me.username] = { salt, wrapped };
+      await persist();
       alert('Password changed.');
     });
   });
@@ -570,9 +590,11 @@
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
-      if (!parsed.auth || !parsed.vault) throw new Error('Not a valid vault file');
-      if (loadFile() && !confirm('This will replace the vault stored in this browser. Continue?')) return;
-      saveFile(parsed); fileInput.value = ''; show('login-view');
+      if (!Array.isArray(parsed.users) || !Array.isArray(parsed.entries)) throw new Error('Not a valid vault file');
+      if (loadDoc() && !confirm('This will replace the vault stored in this browser. Continue?')) return;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      remoteSave(parsed);
+      fileInput.value = ''; show('login-view');
       alert('Vault imported. Log in with your account.');
     } catch (err) { alert('Import failed: ' + err.message); }
   });

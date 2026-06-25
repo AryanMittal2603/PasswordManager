@@ -5,8 +5,17 @@ shares it: the admin creates it once, everyone else just logs in. The browser
 encrypts before sending, so the Sheet only ever holds ciphertext.
 
 ```
-Browser (encrypts)  ──►  /api/vault (Vercel function, holds the key)  ──►  Google Sheet cell A1
+Browser (encrypts)  ──►  /api/vault (Vercel function, holds the key)  ──►  Google Sheet (columns)
 ```
+
+The data is stored as readable columns across two tabs:
+
+- **`Sheet1`** (credentials): `ID | Folder | Title | Username | URL | Notes | Password | Updated`
+  — everything is plaintext for easy management **except the Password cell**, which is
+  encrypted ciphertext (`iv:ct`).
+- **`Users`** (accounts, auto-created): `Username | Role | Permissions | Salt | WrappedVK`.
+
+So you can browse/manage entries in the Sheet, but passwords are never readable there.
 
 ## One-time setup
 
