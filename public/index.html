@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Password Vault</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Login -->
+  <div id="login-view" class="view">
+    <form id="login-form" class="card login-card">
+      <h1>🔐 Team Vault</h1>
+      <p class="muted">Sign in to your account</p>
+      <input id="login-username" placeholder="Username" autocomplete="username" required />
+      <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" required />
+      <button type="submit">Sign in</button>
+      <div id="login-error" class="error"></div>
+    </form>
+  </div>
+
+  <!-- App -->
+  <div id="app-view" class="view hidden">
+    <header>
+      <div class="brand">🔐 Team Vault</div>
+      <nav>
+        <button class="tab active" data-tab="vault">Vault</button>
+        <button class="tab admin-only hidden" data-tab="users">Users</button>
+        <button class="tab admin-only hidden" data-tab="audit">Audit Log</button>
+      </nav>
+      <div class="user-box">
+        <span id="whoami" class="muted"></span>
+        <button id="change-pw-btn" class="ghost">Change password</button>
+        <button id="logout-btn" class="ghost">Logout</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Vault tab -->
+      <section id="tab-vault" class="tab-panel">
+        <div class="toolbar">
+          <input id="search" placeholder="Search…" />
+          <button id="add-cred-btn" class="primary perm-create hidden">+ New entry</button>
+        </div>
+        <div id="cred-list"></div>
+      </section>
+
+      <!-- Users tab -->
+      <section id="tab-users" class="tab-panel hidden">
+        <div class="toolbar">
+          <h2>Team members</h2>
+          <button id="add-user-btn" class="primary">+ Add user</button>
+        </div>
+        <div id="user-list"></div>
+      </section>
+
+      <!-- Audit tab -->
+      <section id="tab-audit" class="tab-panel hidden">
+        <h2>Audit log <span class="muted">(latest 200 events)</span></h2>
+        <div id="audit-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal host -->
+  <div id="modal-host" class="modal-host hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

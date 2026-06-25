@@ -1,0 +1,101 @@
+:root {
+  --bg: #0f1115;
+  --panel: #1a1d24;
+  --panel-2: #232733;
+  --border: #2e3340;
+  --text: #e6e8ee;
+  --muted: #8b90a0;
+  --accent: #5b8cff;
+  --accent-2: #3f6ad8;
+  --danger: #e5484d;
+  --ok: #30a46c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.hidden { display: none !important; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+button:hover { border-color: var(--accent); }
+button.primary, button[type=submit] { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+button.primary:hover { background: var(--accent); }
+button.ghost { background: transparent; }
+button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+button.danger:hover { background: var(--danger); color: #fff; }
+
+input, select, textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  width: 100%;
+}
+textarea { resize: vertical; min-height: 60px; }
+
+/* Login */
+.view { min-height: 100vh; }
+#login-view { display: flex; align-items: center; justify-content: center; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; }
+.login-card { width: 320px; display: flex; flex-direction: column; gap: 0.75rem; }
+.login-card h1 { margin: 0; text-align: center; }
+.login-card p { margin: 0 0 0.5rem; text-align: center; }
+
+/* App shell */
+header {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--panel);
+}
+.brand { font-weight: 700; }
+nav { display: flex; gap: 0.5rem; }
+.tab.active { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+.user-box { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
+main { padding: 1.25rem; max-width: 1000px; margin: 0 auto; }
+.toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.toolbar h2 { margin: 0; flex: 1; }
+#search { max-width: 320px; }
+
+/* Lists */
+.row {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.8rem 1rem; margin-bottom: 0.6rem;
+}
+.row .grow { flex: 1; min-width: 0; }
+.row .title { font-weight: 600; }
+.row .sub { color: var(--muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; }
+.folder-head { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 1rem 0 0.5rem; }
+.pill { font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.pill.admin { color: var(--accent); border-color: var(--accent); }
+.pill.on { color: var(--ok); border-color: var(--ok); }
+.pill.off { color: var(--muted); }
+.actions { display: flex; gap: 0.4rem; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* Modal */
+.modal-host { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; width: 420px; max-width: 100%; max-height: 90vh; overflow: auto; }
+.modal h2 { margin-top: 0; }
+.field { margin-bottom: 0.8rem; }
+.field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+.perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.perm-grid label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; color: var(--text); }
+.perm-grid input { width: auto; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+.checkbox-row { display: flex; align-items: center; gap: 0.5rem; }
+.checkbox-row input { width: auto; }
