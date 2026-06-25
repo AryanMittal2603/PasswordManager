@@ -1,0 +1,7 @@
+node_modules
+src
+public
+data
+Dockerfile
+docker-compose.yml
+team-vault.json
