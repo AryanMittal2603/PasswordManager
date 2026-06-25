@@ -3,6 +3,15 @@
 A self-hosted team password repository with role-based access control. Built with
 Node.js + Express + SQLite. Stored passwords are encrypted at rest with AES-256-GCM.
 
+> ### Two versions in this repo
+> - **`src/` + `public/`** — the full **backend** version (this README). Needs a server
+>   with a persistent disk (VPS, Railway, Render, Docker). Enforces permissions server-side.
+> - **`web/`** — a **frontend-only** version that runs on static hosts like **Vercel**, with
+>   no backend. The encrypted vault lives in the browser and in an exportable file. This is
+>   what Vercel deploys (see [`vercel.json`](vercel.json) and [`web/README.md`](web/README.md)).
+>   Use it when you want zero servers; use the backend version when you need hard,
+>   server-enforced access control.
+
 ## Features
 
 - **1 admin + many members.** The admin manages accounts and grants access.
