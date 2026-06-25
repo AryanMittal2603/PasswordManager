@@ -47,6 +47,23 @@ function show(viewId) {
   $('#' + viewId).classList.remove('hidden');
 }
 
+// Run heavy work (PBKDF2 key derivation) without blocking the interaction's next
+// paint: show a busy state, yield so the browser paints it, THEN do the work.
+// This keeps INP low even though the crypto itself takes a few hundred ms.
+async function withBusy(btn, busyText, fn) {
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = busyText;
+  await new Promise(requestAnimationFrame);   // let layout settle
+  await new Promise((r) => setTimeout(r, 0)); // let the busy state actually paint
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+}
+
 // ---------- First-run setup ----------
 $('#setup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -59,23 +76,25 @@ $('#setup-form').addEventListener('submit', async (e) => {
     if (pw.length < 10) throw new Error('Admin password must be at least 10 characters');
     if (pw !== pw2) throw new Error('Passwords do not match');
 
-    const vk = C.randomBytes(32);
-    const { salt, wrapped } = await C.wrapVKForPassword(vk, pw);
-    const vkKey = await C.importVK(vk);
-    const data = {
-      users: { [username]: { role: 'admin', perms: { ...ALL_PERMS } } },
-      entries: [],
-      nextId: 1,
-    };
-    const file = {
-      v: 1,
-      auth: { [username]: { salt, wrapped } },
-      vault: await C.encryptJSON(vkKey, data),
-    };
-    saveFile(file);
-    // Open the session directly.
-    state.vk = vk; state.vkKey = vkKey; state.data = data;
-    state.me = { username, ...data.users[username] };
+    await withBusy(e.submitter || $('#setup-form button[type=submit]'), 'Creating vault…', async () => {
+      const vk = C.randomBytes(32);
+      const { salt, wrapped } = await C.wrapVKForPassword(vk, pw);
+      const vkKey = await C.importVK(vk);
+      const data = {
+        users: { [username]: { role: 'admin', perms: { ...ALL_PERMS } } },
+        entries: [],
+        nextId: 1,
+      };
+      const file = {
+        v: 1,
+        auth: { [username]: { salt, wrapped } },
+        vault: await C.encryptJSON(vkKey, data),
+      };
+      saveFile(file);
+      // Open the session directly.
+      state.vk = vk; state.vkKey = vkKey; state.data = data;
+      state.me = { username, ...data.users[username] };
+    });
     enterApp();
   } catch (err) {
     $('#setup-error').textContent = err.message;
@@ -92,18 +111,20 @@ $('#login-form').addEventListener('submit', async (e) => {
     const file = loadFile();
     const authEntry = file && file.auth[username];
     if (!authEntry) throw new Error('Invalid username or password');
-    let vk;
-    try {
-      vk = await C.unwrapVKWithPassword(authEntry, pw);
-    } catch {
-      throw new Error('Invalid username or password');
-    }
-    const vkKey = await C.importVK(vk);
-    const data = await C.decryptJSON(vkKey, file.vault);
-    const u = data.users[username];
-    if (!u) throw new Error('Account not present in vault');
-    state.vk = vk; state.vkKey = vkKey; state.data = data;
-    state.me = { username, ...u };
+    await withBusy(e.submitter || $('#login-form button[type=submit]'), 'Unlocking…', async () => {
+      let vk;
+      try {
+        vk = await C.unwrapVKWithPassword(authEntry, pw);
+      } catch {
+        throw new Error('Invalid username or password');
+      }
+      const vkKey = await C.importVK(vk);
+      const data = await C.decryptJSON(vkKey, file.vault);
+      const u = data.users[username];
+      if (!u) throw new Error('Account not present in vault');
+      state.vk = vk; state.vkKey = vkKey; state.data = data;
+      state.me = { username, ...u };
+    });
     enterApp();
   } catch (err) {
     $('#login-error').textContent = err.message;
@@ -399,10 +420,9 @@ function openModal(title, bodyNode, onSave) {
       el('button', { textContent: 'Cancel', onclick: closeModal }), saveBtn));
   saveBtn.addEventListener('click', async () => {
     err.textContent = '';
-    saveBtn.disabled = true;
-    try { await onSave(); closeModal(); }
+    // withBusy paints a "Saving…" state before any heavy crypto runs (keeps INP low).
+    try { await withBusy(saveBtn, 'Saving…', onSave); closeModal(); }
     catch (e) { err.textContent = e.message; }
-    finally { saveBtn.disabled = false; }
   });
   host.innerHTML = '';
   host.append(modal);
