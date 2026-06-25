@@ -3,6 +3,41 @@ import * as C from './crypto.js';
 
 const STORAGE_KEY = 'team_vault_v1';
 
+// ---------- Crypto worker (keeps PBKDF2 off the main thread → good INP) ----------
+let _worker = null;
+const _pending = new Map();
+let _msgId = 0;
+try {
+  _worker = new Worker(new URL('./crypto-worker.js', import.meta.url), { type: 'module' });
+  _worker.onmessage = (e) => {
+    const { id, result, error } = e.data;
+    const p = _pending.get(id);
+    if (!p) return;
+    _pending.delete(id);
+    error ? p.reject(new Error(error)) : p.resolve(result);
+  };
+  _worker.onerror = () => { _worker = null; }; // fall back to main thread on failure
+} catch {
+  _worker = null;
+}
+function workerCall(op, args) {
+  return new Promise((resolve, reject) => {
+    const id = ++_msgId;
+    _pending.set(id, { resolve, reject });
+    _worker.postMessage({ id, op, args });
+  });
+}
+// Wrap the VK with a password (PBKDF2). Returns { salt, wrapped }.
+async function wrapVK(vkBytes, password) {
+  if (!_worker) return C.wrapVKForPassword(vkBytes, password);
+  return workerCall('wrap', { vk: Array.from(vkBytes), password });
+}
+// Unwrap the VK with a password (PBKDF2). Returns Uint8Array; throws on wrong password.
+async function unwrapVK(authEntry, password) {
+  if (!_worker) return C.unwrapVKWithPassword(authEntry, password);
+  return new Uint8Array(await workerCall('unwrap', { authEntry, password }));
+}
+
 // ---------- In-memory session state (cleared on lock) ----------
 const state = {
   vk: null,        // raw Vault Key bytes (Uint8Array) while unlocked
@@ -78,7 +113,7 @@ $('#setup-form').addEventListener('submit', async (e) => {
 
     await withBusy(e.submitter || $('#setup-form button[type=submit]'), 'Creating vault…', async () => {
       const vk = C.randomBytes(32);
-      const { salt, wrapped } = await C.wrapVKForPassword(vk, pw);
+      const { salt, wrapped } = await wrapVK(vk, pw);
       const vkKey = await C.importVK(vk);
       const data = {
         users: { [username]: { role: 'admin', perms: { ...ALL_PERMS } } },
@@ -114,7 +149,7 @@ $('#login-form').addEventListener('submit', async (e) => {
     await withBusy(e.submitter || $('#login-form button[type=submit]'), 'Unlocking…', async () => {
       let vk;
       try {
-        vk = await C.unwrapVKWithPassword(authEntry, pw);
+        vk = await unwrapVK(authEntry, pw);
       } catch {
         throw new Error('Invalid username or password');
       }
@@ -301,7 +336,7 @@ $('#add-user-btn').addEventListener('click', () => {
     const isAdmin = adminCb.checked;
     const perms = isAdmin ? { ...ALL_PERMS } : Object.fromEntries(Object.keys(permInputs).map((p) => [p, permInputs[p].checked]));
     // Wrap the shared VK with the new user's password and add their record.
-    const { salt, wrapped } = await C.wrapVKForPassword(state.vk, pw);
+    const { salt, wrapped } = await wrapVK(state.vk, pw);
     const file = loadFile();
     file.auth[username] = { salt, wrapped };
     saveFile(file);
@@ -341,7 +376,7 @@ async function resetUserPassword(username) {
   const np = prompt(`New password for "${username}" (min 8 chars):`);
   if (np == null) return;
   if (np.length < 8) { alert('Password must be at least 8 characters'); return; }
-  const { salt, wrapped } = await C.wrapVKForPassword(state.vk, np);
+  const { salt, wrapped } = await wrapVK(state.vk, np);
   const file = loadFile();
   file.auth[username] = { salt, wrapped };
   saveFile(file);
@@ -361,11 +396,11 @@ $('#change-pw-btn').addEventListener('click', () => {
     // Verify current password by unwrapping VK with it.
     const file = loadFile();
     try {
-      await C.unwrapVKWithPassword(file.auth[state.me.username], cur);
+      await unwrapVK(file.auth[state.me.username], cur);
     } catch {
       throw new Error('Current password is incorrect');
     }
-    const { salt, wrapped } = await C.wrapVKForPassword(state.vk, np);
+    const { salt, wrapped } = await wrapVK(state.vk, np);
     file.auth[state.me.username] = { salt, wrapped };
     saveFile(file);
     alert('Password changed.');
