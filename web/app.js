@@ -162,7 +162,9 @@ $('#login-form').addEventListener('submit', async (e) => {
   const pw = $('#login-password').value;
   try {
     const file = loadFile();
-    const authEntry = file && file.auth[username];
+    // Match the username case-insensitively so "ADMIN", "Admin", "admin" all work.
+    const name = file ? Object.keys(file.auth).find((k) => k.toLowerCase() === username.toLowerCase()) : null;
+    const authEntry = name ? file.auth[name] : null;
     if (!authEntry) throw new Error('Invalid username or password');
     await withBusy(e.submitter || $('#login-form button[type=submit]'), 'Unlocking…', async () => {
       let vk;
@@ -173,10 +175,10 @@ $('#login-form').addEventListener('submit', async (e) => {
       }
       const vkKey = await C.importVK(vk);
       const data = await C.decryptJSON(vkKey, file.vault);
-      const u = data.users[username];
+      const u = data.users[name];
       if (!u) throw new Error('Account not present in vault');
       state.vk = vk; state.vkKey = vkKey; state.data = data;
-      state.me = { username, ...u };
+      state.me = { username: name, ...u };
     });
     enterApp();
   } catch (err) {
