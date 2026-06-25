@@ -4,3 +4,10 @@ data/*.db
 data/*.db-*
 *.log
 team-vault.json
+
+# Google service-account keys — NEVER commit
+*-*.json.key
+service-account*.json
+sa-key*.json
+rare-truck-*.json
+google-credentials*.json

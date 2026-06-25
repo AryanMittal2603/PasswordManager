@@ -112,6 +112,10 @@
   </style>
 </head>
 <body>
+  <div id="loading-view" class="view" style="display:flex;align-items:center;justify-content:center;">
+    <div class="muted">Loading vault…</div>
+  </div>
+
   <div id="setup-view" class="view hidden">
     <form id="setup-form" class="card login-card">
       <h1>🔐 Create your vault</h1>
@@ -145,6 +149,7 @@
         <button class="tab admin-only hidden" data-tab="users">Users</button>
       </nav>
       <div class="user-box">
+        <span id="sync-status" class="muted" style="font-size:.78rem"></span>
         <span id="whoami" class="muted"></span>
         <button id="export-btn" class="ghost" title="Download the encrypted vault file">⬇ Export</button>
         <button id="change-pw-btn" class="ghost">Change password</button>
@@ -273,10 +278,40 @@
     return C.unwrapVKWithPassword(authEntry, password);
   }
 
-  /* ================= App state ================= */
+  /* ================= App state + shared sync ================= */
   const state = { vk: null, vkKey: null, data: null, me: null };
-  function loadFile() { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
-  function saveFile(file) { localStorage.setItem(STORAGE_KEY, JSON.stringify(file)); }
+  const API = '/api/vault';
+  let _syncEl = null;
+  function setSync(text, ok) { if (_syncEl) { _syncEl.textContent = text; _syncEl.style.color = ok === false ? 'var(--danger)' : 'var(--muted)'; } }
+
+  function loadFile() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  }
+  function saveFile(file) {
+    const str = JSON.stringify(file);
+    localStorage.setItem(STORAGE_KEY, str);
+    remoteSave(str); // push the encrypted blob to the shared Sheet
+  }
+  // Pull the shared (encrypted) vault from the server. Returns the raw string or null.
+  async function remoteLoad() {
+    try {
+      const r = await fetch(API, { cache: 'no-store' });
+      if (!r.ok) return null;
+      const { vault } = await r.json();
+      if (!vault) return null;
+      JSON.parse(vault); // sanity-check it's a real vault blob
+      return vault;
+    } catch { return null; }
+  }
+  async function remoteSave(str) {
+    setSync('syncing…');
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vault: str }) });
+      setSync(r.ok ? '☁ synced' : 'sync failed', r.ok);
+    } catch { setSync('offline (saved locally)', false); }
+  }
   async function persist() { const file = loadFile(); file.vault = await C.encryptJSON(state.vkKey, state.data); saveFile(file); }
 
   const $ = (s) => document.querySelector(s);
@@ -284,7 +319,13 @@
   const esc = (s) => (s ?? '').toString();
   const ALL_PERMS = { view: true, create: true, edit: true, delete: true };
 
-  function boot() { if (loadFile()) show('login-view'); else show('setup-view'); }
+  async function boot() {
+    _syncEl = $('#sync-status');
+    // Pull the shared vault first so every device/browser sees the same one.
+    const remote = await remoteLoad();
+    if (remote) { localStorage.setItem(STORAGE_KEY, remote); setSync('☁ synced'); }
+    if (loadFile()) show('login-view'); else show('setup-view');
+  }
   function show(viewId) { document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden')); $('#' + viewId).classList.remove('hidden'); }
 
   async function withBusy(btn, busyText, fn) {
