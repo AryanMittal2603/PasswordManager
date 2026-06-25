@@ -1,12 +1,22 @@
 'use strict';
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const { db, logAction } = require('../db');
 const { signToken, setAuthCookie, clearAuthCookie, requireAuth, publicUser } = require('../auth');
 
 const router = express.Router();
 
-router.post('/login', (req, res) => {
+// Throttle brute-force attempts: max 10 login tries per IP per 15 minutes.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again in a few minutes.' },
+});
+
+router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });

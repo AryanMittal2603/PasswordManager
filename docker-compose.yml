@@ -1,0 +1,16 @@
+services:
+  vault:
+    build: .
+    restart: unless-stopped
+    # Reads secrets from your local .env (never baked into the image).
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist the SQLite database across container restarts/redeploys.
+      - vault-data:/app/data
+
+volumes:
+  vault-data:

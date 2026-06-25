@@ -27,6 +27,38 @@ Open http://localhost:3000 and log in as `admin` with the `ADMIN_PASSWORD` from 
 > on setup. To run elsewhere, copy `.env.example` to `.env` and generate keys with
 > `openssl rand -hex 32`.
 
+## Deploy with Docker (recommended for production)
+
+The image runs as a non-root user with `NODE_ENV=production` and persists the
+database in a named volume.
+
+```bash
+# 1. Ensure .env exists with real secrets (see .env.example).
+# 2. Build and run:
+docker compose up -d --build
+```
+
+The app listens on port 3000. **Put a reverse proxy with HTTPS in front of it**
+(e.g. Caddy, which auto-provisions Let's Encrypt certs) — never expose the raw
+HTTP port to the internet. Example Caddyfile:
+
+```
+vault.yourdomain.com {
+    reverse_proxy localhost:3000
+}
+```
+
+To back up, copy the volume's `vault.db` and store your `MASTER_KEY` separately.
+
+## Production hardening (built in)
+
+- **Login rate limiting** — 10 attempts per IP per 15 min, then `429`.
+- **Global API rate limiting** — 300 requests per IP per 15 min.
+- **Security headers** via Helmet — strict Content-Security-Policy, HSTS,
+  `X-Frame-Options`, etc.
+- **`trust proxy`** enabled under `NODE_ENV=production` so `secure` cookies and
+  per-client rate limiting work correctly behind a reverse proxy.
+
 ## How permissions work
 
 | Role     | Capabilities                                                              |
