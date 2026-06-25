@@ -120,6 +120,7 @@
     <form id="setup-form" class="card login-card">
       <h1>🔐 Create your vault</h1>
       <p class="muted">Set up the admin account. This password encrypts the vault — there is no recovery if you lose it.</p>
+      <div class="app-version" style="text-align:center;font-size:.72rem;opacity:.55;margin-top:-.3rem"></div>
       <input id="setup-username" placeholder="Admin username" autocomplete="username" required />
       <input id="setup-password" type="password" placeholder="Admin password (min 10 chars)" autocomplete="new-password" required />
       <input id="setup-password2" type="password" placeholder="Confirm password" autocomplete="new-password" required />
@@ -133,6 +134,7 @@
     <form id="login-form" class="card login-card">
       <h1>🔐 Team Vault</h1>
       <p class="muted">Unlock with your account</p>
+      <div class="app-version" style="text-align:center;font-size:.72rem;opacity:.55;margin-top:-.3rem"></div>
       <input id="login-username" placeholder="Username" autocomplete="username" required />
       <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" required />
       <button type="submit">Unlock</button>
@@ -143,7 +145,7 @@
 
   <div id="app-view" class="view hidden">
     <header>
-      <div class="brand">🔐 Team Vault</div>
+      <div class="brand">🔐 Team Vault <span class="app-version" style="font-weight:400;font-size:.72rem;color:var(--muted)"></span></div>
       <nav>
         <button class="tab active" data-tab="vault">Vault</button>
         <button class="tab admin-only hidden" data-tab="users">Users</button>
@@ -181,6 +183,8 @@
   <script>
   'use strict';
   const STORAGE_KEY = 'team_vault_v1';
+  const APP_VERSION = '1.0.0';
+  document.querySelectorAll('.app-version').forEach((e) => { e.textContent = 'v' + APP_VERSION; });
 
   /* ================= Crypto (Web Crypto; also runs inside the worker) ================= */
   const enc = new TextEncoder();
