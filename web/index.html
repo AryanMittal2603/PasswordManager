@@ -4,10 +4,114 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Team Password Vault</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --bg: #0d0f14; --panel: #161922; --panel-2: #1f2330; --border: #2a2f3d;
+      --text: #e8eaf0; --muted: #8b90a0; --accent: #6b9bff; --accent-2: #4a6fe0;
+      --danger: #e5484d; --ok: #36b37e; --radius: 14px; --shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(1100px 700px at 15% -10%, rgba(74,111,224,.18), transparent 60%),
+        radial-gradient(900px 600px at 110% 10%, rgba(107,155,255,.12), transparent 55%), var(--bg);
+      background-attachment: fixed; -webkit-font-smoothing: antialiased;
+    }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); font-size: .85rem; }
+    .error { color: var(--danger); font-size: .85rem; min-height: 1.2em; text-align: center; }
+    button {
+      cursor: pointer; border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+      padding: .55rem .95rem; border-radius: 10px; font-size: .9rem; font-weight: 500;
+      transition: background .15s, border-color .15s, transform .05s, box-shadow .15s;
+    }
+    button:hover { border-color: var(--accent); }
+    button:active { transform: translateY(1px); }
+    button.primary, button[type=submit] {
+      background: linear-gradient(180deg, var(--accent), var(--accent-2)); border-color: transparent;
+      color: #fff; box-shadow: 0 6px 18px rgba(74,111,224,.35);
+    }
+    button.primary:hover, button[type=submit]:hover { filter: brightness(1.07); }
+    button.ghost { background: transparent; }
+    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+    button.danger:hover { background: var(--danger); color: #fff; }
+    button:disabled { opacity: .6; cursor: default; }
+    input, select, textarea {
+      background: rgba(0,0,0,.25); border: 1px solid var(--border); color: var(--text);
+      padding: .65rem .8rem; border-radius: 10px; font-size: .92rem; width: 100%;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    input::placeholder, textarea::placeholder { color: #5c6172; }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--accent); background: rgba(0,0,0,.35);
+      box-shadow: 0 0 0 3px rgba(107,155,255,.18);
+    }
+    textarea { resize: vertical; min-height: 64px; }
+    .view { min-height: 100vh; }
+    #setup-view, #login-view { display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .card {
+      background: linear-gradient(180deg, rgba(31,35,48,.9), rgba(22,25,34,.95));
+      border: 1px solid var(--border); border-radius: 18px; padding: 2rem;
+      box-shadow: var(--shadow); backdrop-filter: blur(6px);
+    }
+    .login-card { width: 360px; max-width: 100%; display: flex; flex-direction: column; gap: .8rem; }
+    .login-card h1 { margin: 0; text-align: center; font-size: 1.6rem; letter-spacing: -.01em; }
+    .login-card > p { margin: -.2rem 0 .6rem; text-align: center; line-height: 1.5; }
+    .login-card button[type=submit] { margin-top: .2rem; padding: .7rem; font-size: .95rem; }
+    header {
+      display: flex; align-items: center; gap: 1.5rem; padding: .85rem 1.5rem;
+      border-bottom: 1px solid var(--border); background: rgba(22,25,34,.8);
+      backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10;
+    }
+    .brand { font-weight: 700; font-size: 1.05rem; }
+    nav { display: flex; gap: .4rem; }
+    .tab { background: transparent; border-color: transparent; color: var(--muted); }
+    .tab:hover { color: var(--text); border-color: var(--border); }
+    .tab.active { background: var(--panel-2); border-color: var(--border); color: var(--text); }
+    .user-box { margin-left: auto; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .user-box .ghost { font-size: .85rem; padding: .45rem .7rem; }
+    main { padding: 1.5rem; max-width: 1000px; margin: 0 auto; }
+    .toolbar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; }
+    .toolbar h2 { margin: 0; flex: 1; font-size: 1.2rem; }
+    #search { max-width: 340px; }
+    .row {
+      display: flex; align-items: center; gap: 1rem; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: .9rem 1.1rem; margin-bottom: .6rem; transition: border-color .15s;
+    }
+    .row:hover { border-color: #3a4154; }
+    .row .grow { flex: 1; min-width: 0; }
+    .row .title { font-weight: 600; }
+    .row .sub { color: var(--muted); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .folder-head { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; margin: 1.25rem 0 .6rem; }
+    .pill { font-size: .7rem; padding: .18rem .55rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+    .pill.admin { color: var(--accent); border-color: var(--accent); }
+    .pill.on { color: var(--ok); border-color: rgba(54,179,126,.5); background: rgba(54,179,126,.1); }
+    .pill.off { color: var(--muted); opacity: .55; }
+    .actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .modal-host { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(3px); }
+    .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem; width: 440px; max-width: 100%; max-height: 90vh; overflow: auto; box-shadow: var(--shadow); }
+    .modal h2 { margin: 0 0 1.25rem; }
+    .field { margin-bottom: .9rem; }
+    .field label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .04em; }
+    .perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .perm-grid label { display: flex; align-items: center; gap: .45rem; font-size: .9rem; color: var(--text); }
+    .perm-grid input { width: auto; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.5rem; }
+    .checkbox-row { display: flex; align-items: center; gap: .5rem; margin: .5rem 0; }
+    .checkbox-row input { width: auto; }
+    .row-split { display: flex; justify-content: center; }
+    .row-split .ghost { font-size: .85rem; color: var(--muted); }
+    .row-split .ghost:hover { color: var(--accent); }
+    .note { margin-top: 1.25rem; line-height: 1.5; }
+    .gen-row { display: flex; gap: .5rem; }
+    .gen-row button { white-space: nowrap; }
+  </style>
 </head>
 <body>
-  <!-- First-run setup: create the admin + vault -->
   <div id="setup-view" class="view hidden">
     <form id="setup-form" class="card login-card">
       <h1>🔐 Create your vault</h1>
@@ -16,14 +120,11 @@
       <input id="setup-password" type="password" placeholder="Admin password (min 10 chars)" autocomplete="new-password" required />
       <input id="setup-password2" type="password" placeholder="Confirm password" autocomplete="new-password" required />
       <button type="submit">Create vault</button>
-      <div class="row-split">
-        <button type="button" id="setup-import" class="ghost">Import existing vault file</button>
-      </div>
+      <div class="row-split"><button type="button" id="setup-import" class="ghost">Import existing vault file</button></div>
       <div id="setup-error" class="error"></div>
     </form>
   </div>
 
-  <!-- Login -->
   <div id="login-view" class="view hidden">
     <form id="login-form" class="card login-card">
       <h1>🔐 Team Vault</h1>
@@ -31,14 +132,11 @@
       <input id="login-username" placeholder="Username" autocomplete="username" required />
       <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" required />
       <button type="submit">Unlock</button>
-      <div class="row-split">
-        <button type="button" id="login-import" class="ghost">Import vault file</button>
-      </div>
+      <div class="row-split"><button type="button" id="login-import" class="ghost">Import vault file</button></div>
       <div id="login-error" class="error"></div>
     </form>
   </div>
 
-  <!-- App -->
   <div id="app-view" class="view hidden">
     <header>
       <div class="brand">🔐 Team Vault</div>
@@ -53,7 +151,6 @@
         <button id="lock-btn" class="ghost">Lock</button>
       </div>
     </header>
-
     <main>
       <section id="tab-vault" class="tab-panel">
         <div class="toolbar">
@@ -62,7 +159,6 @@
         </div>
         <div id="cred-list"></div>
       </section>
-
       <section id="tab-users" class="tab-panel hidden">
         <div class="toolbar">
           <h2>Team members</h2>
@@ -77,6 +173,384 @@
   <input type="file" id="file-input" accept="application/json,.json" class="hidden" />
   <div id="modal-host" class="modal-host hidden"></div>
 
-  <script type="module" src="app.js"></script>
+  <script>
+  'use strict';
+  const STORAGE_KEY = 'team_vault_v1';
+
+  /* ================= Crypto (Web Crypto; also runs inside the worker) ================= */
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const PBKDF2_ITERATIONS = 250000;
+  function b64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+  function unb64(s) { return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); }
+  function randomBytes(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
+  async function deriveKey(password, saltBytes, iterations = PBKDF2_ITERATIONS) {
+    const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: saltBytes, iterations, hash: 'SHA-256' },
+      baseKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  async function aesEncrypt(key, dataBytes) {
+    const iv = randomBytes(12);
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, dataBytes);
+    return { iv: b64(iv), ct: b64(ct) };
+  }
+  async function aesDecrypt(key, blob) {
+    const out = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(blob.iv) }, key, unb64(blob.ct));
+    return new Uint8Array(out);
+  }
+  async function encryptJSON(key, obj) { return aesEncrypt(key, enc.encode(JSON.stringify(obj))); }
+  async function decryptJSON(key, blob) { return JSON.parse(dec.decode(await aesDecrypt(key, blob))); }
+  async function importVK(vkBytes) { return crypto.subtle.importKey('raw', vkBytes, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); }
+  async function wrapVKForPassword(vkBytes, password) {
+    const salt = randomBytes(16);
+    const userKey = await deriveKey(password, salt);
+    const wrapped = await aesEncrypt(userKey, vkBytes);
+    return { salt: b64(salt), wrapped };
+  }
+  async function unwrapVKWithPassword(authEntry, password) {
+    const userKey = await deriveKey(password, unb64(authEntry.salt));
+    return aesDecrypt(userKey, authEntry.wrapped);
+  }
+  function generatePassword(length = 20) {
+    const sets = { lower: 'abcdefghijkmnpqrstuvwxyz', upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ', digit: '23456789', sym: '!@#$%^&*()-_=+[]{}' };
+    const all = Object.values(sets).join('');
+    const pick = (set) => set[randomBytes(1)[0] % set.length];
+    const out = [pick(sets.lower), pick(sets.upper), pick(sets.digit), pick(sets.sym)];
+    while (out.length < length) out.push(pick(all));
+    for (let i = out.length - 1; i > 0; i--) { const j = randomBytes(1)[0] % (i + 1); [out[i], out[j]] = [out[j], out[i]]; }
+    return out.join('');
+  }
+  const C = { b64, unb64, randomBytes, deriveKey, aesEncrypt, aesDecrypt, encryptJSON, decryptJSON, importVK, wrapVKForPassword, unwrapVKWithPassword, generatePassword };
+
+  /* ================= Inline worker (Blob URL) for off-main-thread PBKDF2 ================= */
+  // Built from the real functions above so there's one source of truth and no separate file.
+  const _workerSrc =
+    'const enc=new TextEncoder(),dec=new TextDecoder();const PBKDF2_ITERATIONS=' + PBKDF2_ITERATIONS + ';' +
+    [b64, unb64, randomBytes, deriveKey, aesEncrypt, aesDecrypt, wrapVKForPassword, unwrapVKWithPassword].map((f) => f.toString()).join('\n') +
+    ';self.onmessage=async(e)=>{const{id,op,args}=e.data;try{let r;' +
+    "if(op==='ping')r='pong';" +
+    "else if(op==='wrap')r=await wrapVKForPassword(new Uint8Array(args.vk),args.password);" +
+    "else if(op==='unwrap')r=Array.from(await unwrapVKWithPassword(args.authEntry,args.password));" +
+    'self.postMessage({id,result:r});}catch(err){self.postMessage({id,error:(err&&err.message)||String(err)});}};';
+
+  let _worker = null;
+  const _pending = new Map();
+  let _msgId = 0;
+  function disableWorker() { _worker = null; for (const p of _pending.values()) p.infra(); _pending.clear(); }
+  function workerCall(op, args, timeoutMs = 4000) {
+    return new Promise((resolve, reject) => {
+      const id = ++_msgId;
+      const infraFail = () => { const e = new Error('worker unavailable'); e._infra = true; reject(e); };
+      const timer = setTimeout(disableWorker, timeoutMs);
+      _pending.set(id, {
+        resolve: (v) => { clearTimeout(timer); resolve(v); },
+        reject: (e) => { clearTimeout(timer); reject(e); },
+        infra: () => { clearTimeout(timer); infraFail(); },
+      });
+      try { _worker.postMessage({ id, op, args }); }
+      catch { _pending.delete(id); clearTimeout(timer); infraFail(); }
+    });
+  }
+  try {
+    _worker = new Worker(URL.createObjectURL(new Blob([_workerSrc], { type: 'application/javascript' })));
+    _worker.onmessage = (e) => {
+      const { id, result, error } = e.data;
+      const p = _pending.get(id);
+      if (!p) return;
+      _pending.delete(id);
+      error ? p.reject(new Error(error)) : p.resolve(result);
+    };
+    _worker.onerror = disableWorker;
+    workerCall('ping', {}).catch(() => {});
+  } catch { _worker = null; }
+
+  async function wrapVK(vkBytes, password) {
+    if (_worker) { try { return await workerCall('wrap', { vk: Array.from(vkBytes), password }); } catch (e) { if (!e._infra) throw e; } }
+    return C.wrapVKForPassword(vkBytes, password);
+  }
+  async function unwrapVK(authEntry, password) {
+    if (_worker) { try { return new Uint8Array(await workerCall('unwrap', { authEntry, password })); } catch (e) { if (!e._infra) throw e; } }
+    return C.unwrapVKWithPassword(authEntry, password);
+  }
+
+  /* ================= App state ================= */
+  const state = { vk: null, vkKey: null, data: null, me: null };
+  function loadFile() { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
+  function saveFile(file) { localStorage.setItem(STORAGE_KEY, JSON.stringify(file)); }
+  async function persist() { const file = loadFile(); file.vault = await C.encryptJSON(state.vkKey, state.data); saveFile(file); }
+
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); for (const k of kids) if (k != null) n.append(k); return n; };
+  const esc = (s) => (s ?? '').toString();
+  const ALL_PERMS = { view: true, create: true, edit: true, delete: true };
+
+  function boot() { if (loadFile()) show('login-view'); else show('setup-view'); }
+  function show(viewId) { document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden')); $('#' + viewId).classList.remove('hidden'); }
+
+  async function withBusy(btn, busyText, fn) {
+    const prev = btn.textContent;
+    btn.disabled = true; btn.textContent = busyText;
+    await new Promise(requestAnimationFrame);
+    await new Promise((r) => setTimeout(r, 0));
+    try { return await fn(); } finally { btn.disabled = false; btn.textContent = prev; }
+  }
+
+  /* ---- Setup ---- */
+  $('#setup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('#setup-error').textContent = '';
+    const username = $('#setup-username').value.trim();
+    const pw = $('#setup-password').value;
+    const pw2 = $('#setup-password2').value;
+    try {
+      if (!username) throw new Error('Username is required');
+      if (pw.length < 10) throw new Error('Admin password must be at least 10 characters');
+      if (pw !== pw2) throw new Error('Passwords do not match');
+      await withBusy(e.submitter || $('#setup-form button[type=submit]'), 'Creating vault…', async () => {
+        const vk = C.randomBytes(32);
+        const { salt, wrapped } = await wrapVK(vk, pw);
+        const vkKey = await C.importVK(vk);
+        const data = { users: { [username]: { role: 'admin', perms: { ...ALL_PERMS } } }, entries: [], nextId: 1 };
+        const file = { v: 1, auth: { [username]: { salt, wrapped } }, vault: await C.encryptJSON(vkKey, data) };
+        saveFile(file);
+        state.vk = vk; state.vkKey = vkKey; state.data = data;
+        state.me = { username, ...data.users[username] };
+      });
+      enterApp();
+    } catch (err) { $('#setup-error').textContent = err.message; }
+  });
+
+  /* ---- Login / lock ---- */
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('#login-error').textContent = '';
+    const username = $('#login-username').value.trim();
+    const pw = $('#login-password').value;
+    try {
+      const file = loadFile();
+      const name = file ? Object.keys(file.auth).find((k) => k.toLowerCase() === username.toLowerCase()) : null;
+      const authEntry = name ? file.auth[name] : null;
+      if (!authEntry) throw new Error('Invalid username or password');
+      await withBusy(e.submitter || $('#login-form button[type=submit]'), 'Unlocking…', async () => {
+        let vk;
+        try { vk = await unwrapVK(authEntry, pw); } catch { throw new Error('Invalid username or password'); }
+        const vkKey = await C.importVK(vk);
+        const data = await C.decryptJSON(vkKey, file.vault);
+        const u = data.users[name];
+        if (!u) throw new Error('Account not present in vault');
+        state.vk = vk; state.vkKey = vkKey; state.data = data;
+        state.me = { username: name, ...u };
+      });
+      enterApp();
+    } catch (err) { $('#login-error').textContent = err.message; }
+  });
+
+  $('#lock-btn').addEventListener('click', lock);
+  function lock() { state.vk = null; state.vkKey = null; state.data = null; state.me = null; $('#login-password').value = ''; show('login-view'); }
+
+  function enterApp() {
+    show('app-view');
+    $('#whoami').textContent = state.me.username + ' (' + state.me.role + ')';
+    const isAdmin = state.me.role === 'admin';
+    document.querySelectorAll('.admin-only').forEach((n) => n.classList.toggle('hidden', !isAdmin));
+    $('#add-cred-btn').classList.toggle('hidden', !(isAdmin || state.me.perms.create));
+    switchTab('vault'); renderVault();
+  }
+
+  const can = (action) => state.me.role === 'admin' || !!state.me.perms[action];
+
+  document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+    $('#tab-' + name).classList.remove('hidden');
+    if (name === 'users') renderUsers();
+    if (name === 'vault') renderVault();
+  }
+
+  /* ---- Vault ---- */
+  $('#search').addEventListener('input', renderVault);
+  $('#add-cred-btn').addEventListener('click', () => openCredModal(null));
+  function renderVault() {
+    const list = $('#cred-list'); list.innerHTML = '';
+    if (!can('view')) { list.append(el('p', { className: 'muted', textContent: 'You do not have permission to view entries.' })); return; }
+    const q = $('#search').value.toLowerCase();
+    const entries = state.data.entries.filter((c) => [c.title, c.username, c.url, c.folder].some((f) => (f || '').toLowerCase().includes(q)));
+    if (!entries.length) { list.append(el('p', { className: 'muted', textContent: 'No entries yet.' })); return; }
+    const byFolder = {};
+    for (const c of entries) (byFolder[c.folder || 'General'] ||= []).push(c);
+    for (const folder of Object.keys(byFolder).sort()) {
+      list.append(el('div', { className: 'folder-head', textContent: folder }));
+      for (const c of byFolder[folder]) {
+        const actions = el('div', { className: 'actions' });
+        actions.append(el('button', { textContent: '👁 Reveal', onclick: () => revealPassword(c) }));
+        if (can('edit')) actions.append(el('button', { textContent: 'Edit', onclick: () => openCredModal(c) }));
+        if (can('delete')) actions.append(el('button', { className: 'danger', textContent: 'Delete', onclick: () => deleteCred(c) }));
+        const sub = [c.username, c.url].filter(Boolean).join('  ·  ');
+        list.append(el('div', { className: 'row' },
+          el('div', { className: 'grow' }, el('div', { className: 'title', textContent: c.title }), el('div', { className: 'sub', textContent: sub || '—' })),
+          actions));
+      }
+    }
+  }
+  async function revealPassword(c) {
+    try { await navigator.clipboard?.writeText(c.password); } catch {}
+    alert('Password for "' + c.title + '":\n\n' + c.password + '\n\n(Copied to clipboard if your browser allowed it.)');
+  }
+  async function deleteCred(c) {
+    if (!confirm('Delete "' + c.title + '"? This cannot be undone.')) return;
+    state.data.entries = state.data.entries.filter((e) => e.id !== c.id);
+    await persist(); renderVault();
+  }
+  function openCredModal(cred) {
+    const editing = !!cred;
+    const pwInput = el('input', { id: 'f-password', type: 'text', autocomplete: 'off', value: editing ? cred.password : '' });
+    const genBtn = el('button', { type: 'button', textContent: 'Generate', onclick: () => { pwInput.value = C.generatePassword(20); } });
+    const body = el('div', {},
+      field('Title', '<input id="f-title" value="' + esc(cred?.title) + '" />'),
+      field('Folder', '<input id="f-folder" value="' + esc(cred?.folder || 'General') + '" />'),
+      field('Username', '<input id="f-username" value="' + esc(cred?.username) + '" autocomplete="off" />'),
+      field('URL', '<input id="f-url" value="' + esc(cred?.url) + '" />'),
+      labeled('Password', el('div', { className: 'gen-row' }, pwInput, genBtn)),
+      field('Notes', '<textarea id="f-notes">' + esc(cred?.notes) + '</textarea>'));
+    openModal(editing ? 'Edit entry' : 'New entry', body, async () => {
+      const title = $('#f-title').value.trim();
+      const password = pwInput.value;
+      if (!title) throw new Error('Title is required');
+      if (!password) throw new Error('Password is required');
+      const fields = { title, folder: $('#f-folder').value.trim() || 'General', username: $('#f-username').value, url: $('#f-url').value, notes: $('#f-notes').value, password };
+      if (editing) Object.assign(cred, fields);
+      else state.data.entries.push({ id: state.data.nextId++, ...fields });
+      await persist(); renderVault();
+    });
+  }
+
+  /* ---- Users (admin) ---- */
+  function renderUsers() {
+    const wrap = $('#user-list'); wrap.innerHTML = '';
+    const users = state.data.users;
+    for (const username of Object.keys(users)) {
+      const u = users[username];
+      const isAdmin = u.role === 'admin';
+      const perms = el('div', { className: 'actions' });
+      for (const p of ['view', 'create', 'edit', 'delete']) perms.append(el('span', { className: 'pill ' + (isAdmin || u.perms?.[p] ? 'on' : 'off'), textContent: p }));
+      const actions = el('div', { className: 'actions' });
+      if (!isAdmin) actions.append(el('button', { textContent: 'Edit access', onclick: () => openUserPermModal(username) }));
+      actions.append(el('button', { textContent: 'Reset pw', onclick: () => resetUserPassword(username) }));
+      if (!isAdmin) actions.append(el('button', { className: 'danger', textContent: 'Delete', onclick: () => deleteUser(username) }));
+      wrap.append(el('div', { className: 'row' },
+        el('div', { className: 'grow' },
+          el('div', { className: 'title' }, username + '  ', el('span', { className: 'pill ' + (isAdmin ? 'admin' : ''), textContent: u.role })),
+          el('div', { className: 'sub', textContent: isAdmin ? 'Full access' : 'Member' })),
+        perms, actions));
+    }
+  }
+  $('#add-user-btn').addEventListener('click', () => {
+    const permInputs = {};
+    const permGrid = el('div', { className: 'perm-grid' });
+    for (const [p, label] of [['view', 'Can view'], ['create', 'Can create'], ['edit', 'Can edit'], ['delete', 'Can delete']]) {
+      const cb = el('input', { type: 'checkbox', checked: p === 'view' }); permInputs[p] = cb; permGrid.append(el('label', {}, cb, label));
+    }
+    const adminCb = el('input', { type: 'checkbox' });
+    const body = el('div', {}, field('Username', '<input id="u-username" autocomplete="off" />'), field('Password (min 8 chars)', '<input id="u-password" type="text" autocomplete="off" />'));
+    body.append(el('label', { className: 'checkbox-row' }, adminCb, 'Make admin (full access)'), el('div', { className: 'field' }, permGrid));
+    openModal('Add user', body, async () => {
+      const username = $('#u-username').value.trim();
+      const pw = $('#u-password').value;
+      if (!username) throw new Error('Username is required');
+      if (Object.keys(state.data.users).some((k) => k.toLowerCase() === username.toLowerCase())) throw new Error('Username already exists');
+      if (pw.length < 8) throw new Error('Password must be at least 8 characters');
+      const isAdmin = adminCb.checked;
+      const perms = isAdmin ? { ...ALL_PERMS } : Object.fromEntries(Object.keys(permInputs).map((p) => [p, permInputs[p].checked]));
+      const { salt, wrapped } = await wrapVK(state.vk, pw);
+      const file = loadFile(); file.auth[username] = { salt, wrapped }; saveFile(file);
+      state.data.users[username] = { role: isAdmin ? 'admin' : 'member', perms };
+      await persist(); renderUsers();
+    });
+  });
+  function openUserPermModal(username) {
+    const u = state.data.users[username];
+    const inputs = {};
+    const grid = el('div', { className: 'perm-grid' });
+    for (const [p, label] of [['view', 'Can view'], ['create', 'Can create'], ['edit', 'Can edit'], ['delete', 'Can delete']]) {
+      const cb = el('input', { type: 'checkbox', checked: !!u.perms?.[p] }); inputs[p] = cb; grid.append(el('label', {}, cb, label));
+    }
+    openModal('Access for ' + username, grid, async () => {
+      u.perms = Object.fromEntries(Object.keys(inputs).map((p) => [p, inputs[p].checked]));
+      await persist(); renderUsers();
+    });
+  }
+  async function deleteUser(username) {
+    if (!confirm('Delete user "' + username + '"?')) return;
+    delete state.data.users[username];
+    const file = loadFile(); delete file.auth[username]; saveFile(file);
+    await persist(); renderUsers();
+  }
+  async function resetUserPassword(username) {
+    const np = prompt('New password for "' + username + '" (min 8 chars):');
+    if (np == null) return;
+    if (np.length < 8) { alert('Password must be at least 8 characters'); return; }
+    const { salt, wrapped } = await wrapVK(state.vk, np);
+    const file = loadFile(); file.auth[username] = { salt, wrapped }; saveFile(file);
+    alert('Password for "' + username + '" was reset. Export the vault and share it so they can use the new password.');
+  }
+
+  /* ---- Change my password ---- */
+  $('#change-pw-btn').addEventListener('click', () => {
+    const body = el('div', {}, field('Current password', '<input id="cp-cur" type="password" autocomplete="off" />'), field('New password (min 8 chars)', '<input id="cp-new" type="password" autocomplete="off" />'));
+    openModal('Change your password', body, async () => {
+      const cur = $('#cp-cur').value;
+      const np = $('#cp-new').value;
+      if (np.length < 8) throw new Error('New password must be at least 8 characters');
+      const file = loadFile();
+      try { await unwrapVK(file.auth[state.me.username], cur); } catch { throw new Error('Current password is incorrect'); }
+      const { salt, wrapped } = await wrapVK(state.vk, np);
+      file.auth[state.me.username] = { salt, wrapped }; saveFile(file);
+      alert('Password changed.');
+    });
+  });
+
+  /* ---- Export / Import ---- */
+  $('#export-btn').addEventListener('click', () => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const a = el('a', { href: URL.createObjectURL(new Blob([raw], { type: 'application/json' })), download: 'team-vault.json' });
+    document.body.append(a); a.click(); a.remove();
+  });
+  const fileInput = $('#file-input');
+  $('#login-import').addEventListener('click', () => fileInput.click());
+  $('#setup-import').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed.auth || !parsed.vault) throw new Error('Not a valid vault file');
+      if (loadFile() && !confirm('This will replace the vault stored in this browser. Continue?')) return;
+      saveFile(parsed); fileInput.value = ''; show('login-view');
+      alert('Vault imported. Log in with your account.');
+    } catch (err) { alert('Import failed: ' + err.message); }
+  });
+
+  /* ---- Modal plumbing ---- */
+  function labeled(label, node) { return el('div', { className: 'field' }, el('label', { textContent: label }), node); }
+  function field(label, innerHTML) { const holder = el('div'); holder.innerHTML = innerHTML; return labeled(label, holder.firstElementChild); }
+  function openModal(title, bodyNode, onSave) {
+    const host = $('#modal-host');
+    const err = el('div', { className: 'error' });
+    const saveBtn = el('button', { className: 'primary', textContent: 'Save' });
+    const modal = el('div', { className: 'modal' }, el('h2', { textContent: title }), bodyNode, err,
+      el('div', { className: 'modal-actions' }, el('button', { textContent: 'Cancel', onclick: closeModal }), saveBtn));
+    saveBtn.addEventListener('click', async () => {
+      err.textContent = '';
+      try { await withBusy(saveBtn, 'Saving…', onSave); closeModal(); } catch (e) { err.textContent = e.message; }
+    });
+    host.innerHTML = ''; host.append(modal); host.classList.remove('hidden');
+    host.onclick = (e) => { if (e.target === host) closeModal(); };
+  }
+  function closeModal() { $('#modal-host').classList.add('hidden'); $('#modal-host').innerHTML = ''; }
+
+  boot();
+  </script>
 </body>
 </html>
