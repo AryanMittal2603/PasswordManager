@@ -7,3 +7,4 @@ docker-compose.yml
 team-vault.json
 package.json
 package-lock.json
+*.md

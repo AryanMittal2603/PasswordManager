@@ -1,7 +1,0 @@
-{
-  "installCommand": "echo 'no dependencies needed for static site + built-in-only function'",
-  "rewrites": [
-    { "source": "/", "destination": "/web/index.html" },
-    { "source": "/((?!api/).*)", "destination": "/web/$1" }
-  ]
-}
