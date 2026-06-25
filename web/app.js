@@ -7,6 +7,7 @@ const STORAGE_KEY = 'team_vault_v1';
 let _worker = null;
 const _pending = new Map();
 let _msgId = 0;
+function disableWorker() { _worker = null; for (const p of _pending.values()) p.infra(); _pending.clear(); }
 try {
   _worker = new Worker(new URL('./crypto-worker.js', import.meta.url), { type: 'module' });
   _worker.onmessage = (e) => {
@@ -16,26 +17,43 @@ try {
     _pending.delete(id);
     error ? p.reject(new Error(error)) : p.resolve(result);
   };
-  _worker.onerror = () => { _worker = null; }; // fall back to main thread on failure
+  _worker.onerror = disableWorker;             // worker failed to load → fall back
+  workerCall('ping', {}).catch(() => {});      // proactively validate at startup
 } catch {
   _worker = null;
 }
-function workerCall(op, args) {
+// Calls the worker, but never hangs: if there's no response in `timeoutMs`, the
+// worker is treated as broken and the promise rejects with an _infra error so the
+// caller can fall back to main-thread crypto.
+function workerCall(op, args, timeoutMs = 4000) {
   return new Promise((resolve, reject) => {
     const id = ++_msgId;
-    _pending.set(id, { resolve, reject });
-    _worker.postMessage({ id, op, args });
+    const infraFail = () => { const e = new Error('worker unavailable'); e._infra = true; reject(e); };
+    const timer = setTimeout(disableWorker, timeoutMs); // rejects all pending via infra()
+    _pending.set(id, {
+      resolve: (v) => { clearTimeout(timer); resolve(v); },
+      reject: (e) => { clearTimeout(timer); reject(e); },
+      infra: () => { clearTimeout(timer); infraFail(); },
+    });
+    try { _worker.postMessage({ id, op, args }); }
+    catch { _pending.delete(id); clearTimeout(timer); infraFail(); }
   });
 }
 // Wrap the VK with a password (PBKDF2). Returns { salt, wrapped }.
 async function wrapVK(vkBytes, password) {
-  if (!_worker) return C.wrapVKForPassword(vkBytes, password);
-  return workerCall('wrap', { vk: Array.from(vkBytes), password });
+  if (_worker) {
+    try { return await workerCall('wrap', { vk: Array.from(vkBytes), password }); }
+    catch (e) { if (!e._infra) throw e; } // only fall back on infra failure, not real errors
+  }
+  return C.wrapVKForPassword(vkBytes, password);
 }
 // Unwrap the VK with a password (PBKDF2). Returns Uint8Array; throws on wrong password.
 async function unwrapVK(authEntry, password) {
-  if (!_worker) return C.unwrapVKWithPassword(authEntry, password);
-  return new Uint8Array(await workerCall('unwrap', { authEntry, password }));
+  if (_worker) {
+    try { return new Uint8Array(await workerCall('unwrap', { authEntry, password })); }
+    catch (e) { if (!e._infra) throw e; } // a wrong password is a real error — don't fall back
+  }
+  return C.unwrapVKWithPassword(authEntry, password);
 }
 
 // ---------- In-memory session state (cleared on lock) ----------

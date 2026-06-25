@@ -7,7 +7,9 @@ self.onmessage = async (e) => {
   const { id, op, args } = e.data;
   try {
     let result;
-    if (op === 'wrap') {
+    if (op === 'ping') {
+      result = 'pong';
+    } else if (op === 'wrap') {
       // args: { vk: number[], password } -> { salt, wrapped }
       result = await C.wrapVKForPassword(new Uint8Array(args.vk), args.password);
     } else if (op === 'unwrap') {
